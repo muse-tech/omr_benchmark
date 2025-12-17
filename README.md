@@ -13,11 +13,18 @@ pip install -r requirements.txt
 ### Basic Usage
 
 ```bash
-# Basic usage
+# Basic usage (computes all metrics)
 python calculate_metrics.py <ground_truth.mscz> <predicted.mscz>
 
 # With detailed error analysis
 python calculate_metrics.py <ground_truth.mscz> <predicted.mscz> --detailed-errors
+
+# Compute only specific metric groups
+python calculate_metrics.py <ground_truth.mscz> <predicted.mscz> --metric tree
+python calculate_metrics.py <ground_truth.mscz> <predicted.mscz> --metric musical_structure
+
+# Use approximate algorithm for Tree Edit Distance
+python calculate_metrics.py <ground_truth.mscz> <predicted.mscz> --ted-approximate
 ```
 
 
@@ -33,408 +40,403 @@ python calculate_average_metrics.py data/mscz/ data/predicted/
 # With approximate algorithm for large trees
 python calculate_average_metrics.py data/mscz/ data/predicted/ --ted-approximate
 
-# With saving results to JSON file
-python calculate_average_metrics.py data/mscz/ data/predicted/ -o results.json
+# Save reports to CSV files in a directory
+python calculate_average_metrics.py data/mscz/ data/predicted/ -o report_dir/
+
+# Save CSV reports and detailed text reports for each file
+python calculate_average_metrics.py data/mscz/ data/predicted/ -o report_dir/ --detailed-errors
+
+# Compute only specific metric groups
+python calculate_average_metrics.py data/mscz/ data/predicted/ --metric score_structure
 ```
 
 The script will automatically find all pairs of files with matching names in the specified folders, compute metrics for each pair, and output average values across all files.
 
+**Output files (when using `-o` option):**
+- `tree_level_metrics.csv` - Tree Edit Distance metrics
+- `sequence_metrics.csv` - CER and SER metrics
+- `musical_structure_metrics.csv` - Chord attributes, rests, tuplets
+- `score_structure_metrics.csv` - Clefs, key signatures, time signatures, tempo, instruments, staffs
+- `performance_instructions_metrics.csv` - Dynamics, spanners, fermatas
+- `texts_metrics.csv` - Text elements and lyrics
+- `detailed_reports/` - Individual detailed reports for each file (with `--detailed-errors`)
 
 
-### Optimization for Large Trees
 
-TED can be slow on large scores. The following optimization is available:
+### Parameters
 
-```bash
-# Use approximate algorithm (much faster)
-python calculate_metrics.py data/mscz/score.mscz data/predicted/score.mscz --ted-approximate
+**Optimization:**
+- `--ted-approximate` - Use approximate algorithm for Tree Edit Distance (much faster for large trees)
+  - Recommended for trees > 500 nodes
+  - For trees < 500 nodes: use without this flag
+
+**Metric selection:**
+- `--metric` - Select which metric groups to compute:
+  - `all` (default) - Compute all metrics
+  - `tree` - Tree-level metrics (TED)
+  - `sequence` - Sequence metrics (CER, SER)
+  - `chord` - Chord-level metrics (pitches, durations, articulations, etc.)
+  - `musical_structure` - Musical structure (chords, rests, tuplets)
+  - `score_structure` - Score structure (clefs, key/time signatures, tempo, instruments, staffs)
+  - `performance_instructions` - Performance instructions (dynamics, spanners, fermatas)
+  - `texts` - Text elements and lyrics
+
+**Output options:**
+- `--detailed-errors` - Show detailed error analysis (for single file) or save detailed reports (for batch processing)
+- `-o` / `--output` - Output directory for CSV reports (batch processing only)
+
+
+
+** **
+<details>
+<summary>Example detailed output for a single file</summary>
+
 ```
+Loading ground truth from data/mscz/score_file_12.mscz...
+Loading prediction from data/predicted/score_file_12.mscz...
+Tree sizes: GT=2674, Pred=2654
+Computing metrics...
+1. Tree Edit Distance...
+    Using approximate algorithm (sizes: 2674, 2654)
+   TED computed in 0.51 seconds
+2. Sequence metrics (CER, SER)...
+3. Chord-level metrics...
+   Computing measure alignment from chords...
+4. Other element metrics...
 
-**Optimization parameters:**
-- `--ted-approximate` - uses approximate algorithm for large trees (recommended for trees > 500 nodes)
-
-**Recommendations:**
-- For trees < 500 nodes: use without optimizations
-- For trees > 500 nodes: use `--ted-approximate`
-
-
-
-**Example output for a single file with detailed error analysis:**
-
-```
 ================================================================================
 OMR QUALITY ASSESSMENT RESULTS
 ================================================================================
 
-TREE-LEVEL METRICS:
-  Tree Edit Distance (TED): 21
-  Normalized Error: 0.0079
-  Tree Accuracy: 0.9921
+1. TREE-LEVEL METRICS
+================================================================================
+  TED: 50 | Normalized Error: 0.0187 | Accuracy: 0.9813
 
-SEQUENCE METRICS:
-  CER (Character Error Rate): 0.0214
-  CER Accuracy: 0.9786
-  CER Errors: 1457/68154
+2. SEQUENCE METRICS
+================================================================================
+  CER: 0.0384 (Accuracy: 0.9616, Errors: 616/16041)
+  SER: 0.0525 (Accuracy: 0.9475, Errors: 132/2514)
 
-  SER (Symbol Error Rate): 0.0609
-  SER Accuracy: 0.9391
-  SER Errors: 215/3533
-  SER Matches: 2291
+3. MUSICAL STRUCTURE METRICS
+================================================================================
+  Chords: GT=573, Pred=573, Matched=573, Missing=0, Extra=0
+Chord attributes accuracies: pitch=0.885 | duration=0.997 | spanner=0.970 | dot=0.997 | articulation=0.993 | arpeggio=0.998 | accidental=0.997
+  Rest: Accuracy=1.000 (46/46) | GT=46, Pred=46, Missing=0, Extra=0
 
-NOTE-LEVEL METRICS:
-  Precision: 0.9333
-  Recall: 1.0000
-  F1-Score: 0.9655
-  True Positives: 42
-  False Positives: 3
-  False Negatives: 0
-  Total Notes in GT: 661
-  Total Notes in Prediction: 660
+4. SCORE STRUCTURE METRICS
+================================================================================
+  Clef: Accuracy=1.000 (4/4) | GT=4, Pred=4, Missing=0, Extra=0
+  KeySig: Accuracy=0.250 (2/8) | GT=6, Pred=8, Missing=0, Extra=2
+  TimeSig: Accuracy=1.000 (2/2) | GT=2, Pred=2, Missing=0, Extra=0
+  Tempo: Accuracy=1.000 | Edit Distance=0 | GT=1, Pred=1
+  Instrument: Accuracy=1.000 (1/1) | GT=1, Pred=1, Missing=0, Extra=0
+  Staff: Accuracy=1.000 (2/2) | GT=2, Pred=2, Missing=0, Extra=0
 
-PITCH ACCURACY:
-  Pitch Accuracy: 0.6303
-  Correct Pitches: 416/660
+5. PERFORMANCE INSTRUCTIONS METRICS
+================================================================================
+  Dynamic: Accuracy=1.000 (16/16) | GT=16, Pred=16, Missing=0, Extra=0
+  Spanner: Accuracy=0.844 (54/64) | GT=62, Pred=56, Missing=8, Extra=2
+  Fermata: Accuracy=1.000 (1/1) | GT=1, Pred=1, Missing=0, Extra=0
 
-DURATION ACCURACY:
-  Duration Accuracy: 0.9818
-  Correct Durations: 648/660
-
-MEASURE-LEVEL METRICS:
-  Measure Count Accuracy: 1.0000
-  Measure Content Accuracy: 1.0000
-  Measures in GT: 154
-  Measures in Prediction: 154
-
-STAFF-LEVEL METRICS:
-  Staff Count Accuracy: 1.0000
-  Clef Accuracy: 1.0000
-  Staffs in GT: 2
-  Staffs in Prediction: 2
-
-DETAILED ERROR ANALYSIS
-====================================================================================================
-
-  PITCH ERRORS:
-  Total errors: 76
-  Error types:
-    pitch_mismatch: 72
-    missing_note: 2
-    extra_note: 1
-    count_mismatch: 1
-  Errors by measures (showing up to 100 errors):
-    Staff 0, Measure 0:
-      Note #1: GT=75 → Pred=72 (Duration: GT=16th, Pred=16th)
-
-    Staff 0, Measure 1:
-      Note #0: GT=74 → Pred=70 (Duration: GT=quarter, Pred=quarter)
-      Note #1: GT=72 → Pred=69 (Duration: GT=quarter, Pred=quarter)
-
-    Staff 0, Measure 10:
-      Note #1: GT=69 → Pred=72 (Duration: GT=eighth, Pred=eighth)
-
-    Staff 0, Measure 14:
-      Note #2: GT=72 → Pred=75 (Duration: GT=eighth, Pred=eighth)
-      Note #3: GT=69 → Pred=72 (Duration: GT=eighth, Pred=eighth)
-
-    Staff 0, Measure 15:
-      Note #4: GT=67 → Pred=70 (Duration: GT=eighth, Pred=eighth)
-      Note #5: GT=66 → Pred=70 (Duration: GT=eighth, Pred=eighth)
-
-    Staff 0, Measure 19:
-      Note #2: GT=68 → Pred=69 (Duration: GT=eighth, Pred=eighth)
-
-    Staff 0, Measure 20:
-      Note #0: GT=68 → Pred=69 (Duration: GT=quarter, Pred=quarter)
-
-    Staff 0, Measure 22:
-      Note #5: GT=68 → Pred=69 (Duration: GT=eighth, Pred=eighth)
-
-    Staff 0, Measure 23:
-      Note #0: GT=68 → Pred=69 (Duration: GT=eighth, Pred=eighth)
-      Note #4: GT=68 → Pred=69 (Duration: GT=eighth, Pred=eighth)
-
-    Staff 0, Measure 30:
-      Note #3: GT=71 → Pred=74 (Duration: GT=quarter, Pred=quarter)
-
-    Staff 0, Measure 59:
-      Note #0: GT=70 → Pred=74 (Duration: GT=eighth, Pred=eighth)
-      Note #1: GT=79 → Pred=82 (Duration: GT=eighth, Pred=eighth)
-      Note #2: GT=70 → Pred=74 (Duration: GT=eighth, Pred=eighth)
-      Note #3: GT=79 → Pred=82 (Duration: GT=eighth, Pred=eighth)
-
-    Staff 0, Measure 60:
-      Note #6: GT=79 → Pred=75 (Duration: GT=eighth, Pred=eighth)
-
-    Staff 0, Measure 63:
-      Note #3: GT=72 → Pred=69 (Duration: GT=eighth, Pred=eighth)
-
-    Staff 0, Measure 76:
-      Missing note #0: 59
-      Extra note #2: 70
-
-    Staff 1, Measure 15:
-      Note #0: GT=48 → Pred=51 (Duration: GT=eighth, Pred=eighth)
-      Note #1: GT=51 → Pred=55 (Duration: GT=eighth, Pred=eighth)
-
-    Staff 1, Measure 19:
-      Note #2: GT=56 → Pred=57 (Duration: GT=half, Pred=half)
-
-    Staff 1, Measure 20:
-      Note #0: GT=56 → Pred=53 (Duration: GT=quarter, Pred=quarter)
-      Note #1: GT=55 → Pred=51 (Duration: GT=quarter, Pred=quarter)
-
-    Staff 1, Measure 21:
-      Note #0: GT=63 → Pred=60 (Duration: GT=half, Pred=half)
-      Note #1: GT=61 → Pred=58 (Duration: GT=quarter, Pred=quarter)
-
-    Staff 1, Measure 22:
-      Note #0: GT=60 → Pred=57 (Duration: GT=half, Pred=half)
-      Note #1: GT=65 → Pred=62 (Duration: GT=quarter, Pred=quarter)
-      Note #2: GT=56 → Pred=53 (Duration: GT=half, Pred=half)
-
-    Staff 1, Measure 23:
-      Note #0: GT=63 → Pred=57 (Duration: GT=half, Pred=half)
-      Note #1: GT=62 → Pred=55 (Duration: GT=quarter, Pred=quarter)
-      Note #2: GT=58 → Pred=55 (Duration: GT=half, Pred=half)
-
-    Staff 1, Measure 26:
-      Note #0: GT=58 → Pred=60 (Duration: GT=half, Pred=half)
-      Note #2: GT=62 → Pred=60 (Duration: GT=half, Pred=half)
-      Note #3: GT=63 → Pred=65 (Duration: GT=quarter, Pred=quarter)
-
-    Staff 1, Measure 27:
-      Note #0: GT=58 → Pred=60 (Duration: GT=quarter, Pred=quarter)
-      Note #2: GT=65 → Pred=60 (Duration: GT=quarter, Pred=half)
-
-    Staff 1, Measure 28:
-      Note #0: GT=58 → Pred=56 (Duration: GT=half, Pred=half)
-      Note #2: GT=62 → Pred=65 (Duration: GT=half, Pred=half)
-      Note #3: GT=63 → Pred=65 (Duration: GT=quarter, Pred=quarter)
-
-    Staff 1, Measure 29:
-      Note count mismatch: GT=3, Pred=2
-      Note #0: GT=58 → Pred=48 (Duration: GT=quarter, Pred=quarter)
-      Note #1: GT=68 → Pred=41 (Duration: GT=quarter, Pred=half)
-      Missing note #2: 65
-
-    Staff 1, Measure 30:
-      Note #0: GT=63 → Pred=43 (Duration: GT=half, Pred=half)
-      Note #1: GT=67 → Pred=46 (Duration: GT=half, Pred=half)
-
-    Staff 1, Measure 31:
-      Note #0: GT=56 → Pred=36 (Duration: GT=half, Pred=half)
-      Note #1: GT=63 → Pred=43 (Duration: GT=half, Pred=half)
-      Note #2: GT=65 → Pred=44 (Duration: GT=half, Pred=half)
-
-    Staff 1, Measure 32:
-      Note #0: GT=58 → Pred=38 (Duration: GT=half, Pred=half)
-      Note #1: GT=62 → Pred=41 (Duration: GT=half, Pred=half)
-      Note #2: GT=68 → Pred=48 (Duration: GT=half, Pred=half)
-
-    Staff 1, Measure 33:
-      Note #0: GT=63 → Pred=43 (Duration: GT=eighth, Pred=eighth)
-      Note #1: GT=67 → Pred=46 (Duration: GT=eighth, Pred=eighth)
-      Note #2: GT=70 → Pred=50 (Duration: GT=eighth, Pred=eighth)
-      Note #3: GT=68 → Pred=48 (Duration: GT=eighth, Pred=eighth)
-      Note #4: GT=67 → Pred=46 (Duration: GT=eighth, Pred=eighth)
-      Note #5: GT=65 → Pred=44 (Duration: GT=eighth, Pred=eighth)
-      Note #6: GT=63 → Pred=43 (Duration: GT=eighth, Pred=eighth)
-
-    Staff 1, Measure 34:
-      Note #0: GT=63 → Pred=43 (Duration: GT=quarter, Pred=quarter)
-      Note #1: GT=67 → Pred=46 (Duration: GT=quarter, Pred=quarter)
-
-    Staff 1, Measure 44:
-      Note #1: GT=42 → Pred=46 (Duration: GT=quarter, Pred=quarter)
-
-    Staff 1, Measure 52:
-      Note #2: GT=42 → Pred=46 (Duration: GT=eighth, Pred=eighth)
-      Note #4: GT=43 → Pred=46 (Duration: GT=eighth, Pred=eighth)
-
-    Staff 1, Measure 53:
-      Note #0: GT=36 → Pred=39 (Duration: GT=eighth, Pred=eighth)
-      Note #1: GT=48 → Pred=51 (Duration: GT=eighth, Pred=eighth)
-      Note #2: GT=38 → Pred=41 (Duration: GT=eighth, Pred=eighth)
-      Note #3: GT=50 → Pred=53 (Duration: GT=eighth, Pred=eighth)
-      Note #4: GT=38 → Pred=41 (Duration: GT=eighth, Pred=eighth)
-      Note #5: GT=50 → Pred=53 (Duration: GT=eighth, Pred=eighth)
-
-    Staff 1, Measure 55:
-      Note #0: GT=51 → Pred=55 (Duration: GT=eighth, Pred=eighth)
-      Note #1: GT=55 → Pred=58 (Duration: GT=eighth, Pred=eighth)
-
-    Staff 1, Measure 65:
-      Note #1: GT=58 → Pred=62 (Duration: GT=eighth, Pred=eighth)
-
-  NOTE DURATION ERRORS:
-  Total errors: 13
-  Error types:
-    duration_mismatch: 12
-    missing_duration: 1
-  Errors (showing up to 100):
-    Staff 1, Measure 27: GT=quarter → Pred=half (Pitch: 65)
-    Staff 1, Measure 29: GT=quarter → Pred=half (Pitch: 68)
-    Staff 1, Measure 29: GT=quarter → Pred=half (Pitch: 65)
-    Staff 1, Measure 32: GT=half → Pred=eighth (Pitch: 68)
-    Staff 1, Measure 33: GT=eighth → Pred=quarter (Pitch: 63)
-    Staff 1, Measure 34: GT=quarter → Pred=half (Pitch: 67)
-    Staff 1, Measure 36: GT=half → Pred=quarter (Pitch: 58)
-    Staff 1, Measure 46: GT=quarter → Pred=eighth (Pitch: 38)
-    Staff 1, Measure 58: GT=eighth → Pred=quarter (Pitch: 48)
-    Staff 1, Measure 60: GT=quarter → Pred=eighth (Pitch: 43)
-    Staff 1, Measure 66: GT=eighth → Pred=quarter (Pitch: 57)
-    Staff 1, Measure 72: GT=quarter → Pred=half (Pitch: 55)
-    Missing duration: GT=half (Pitch: 43)
-
-  ARTICULATION ERRORS:
-  Total errors: 6
-  Error types:
-    missing_articulation: 4
-    extra_articulation: 2
-  Errors (showing up to 100):
-    Missing articulation: articAccentAbove (Staff 0, Measure 60, Chord 268)
-       GT: [articAccentAbove], Pred: [(no articulations)]
-    Missing articulation: articStaccatoAbove (Staff 0, Measure 1, Chord 3)
-       GT: [articStaccatoAbove], Pred: [articStaccatoBelow]
-    Extra articulation: articStaccatoBelow (Staff 0, Measure 1, Chord 3)
-       GT: [articStaccatoAbove], Pred: [articStaccatoBelow]
-    Missing articulation: articStaccatoBelow (Staff 0, Measure 16, Chord 66)
-       GT: [articStaccatoBelow], Pred: [(no articulations)]
-    Missing articulation: articStaccatoAbove (Staff 0, Measure 67, Chord 310)
-       GT: [articStaccatoAbove], Pred: [(no articulations)]
-    Extra articulation: articStaccatoBelow (Staff 0, Measure 16, Chord 65)
-       GT: [(no articulations)], Pred: [articStaccatoBelow]
-
-====================================================================================================
-
-ELEMENT CATEGORY METRICS:
-
-  1.1. Instruments and System Parameters:
-    INSTRUMENTS:
-      Precision: 1.0000
-      Recall: 1.0000
-      F1: 1.0000
-      TP: 1, FP: 0, FN: 0
-    STAFFS:
-      Precision: 1.0000
-      Recall: 1.0000
-      F1: 1.0000
-      TP: 2, FP: 0, FN: 0
-    CLEFS:
-      Precision: 1.0000
-      Recall: 1.0000
-      F1: 1.0000
-      TP: 2, FP: 0, FN: 0
-    TIME SIGNATURES:
-      Precision: 1.0000
-      Recall: 1.0000
-      F1: 1.0000
-      TP: 1, FP: 0, FN: 0
-
-  1.2. Spanners:
-    SPANNERS:
-      Precision: 1.0000
-      Recall: 1.0000
-      F1: 1.0000
-      TP: 4, FP: 0, FN: 0
-
-  1.3. Articulations:
-    ARTICULATIONS:
-      Precision: 1.0000
-      Recall: 1.0000
-      F1: 1.0000
-      TP: 4, FP: 0, FN: 0
-
-  1.4. Text Elements:
-    TEXT ELEMENTS TREE (Levenshtein):
-      Overall Levenshtein Distance: 0
-      Overall Normalized Distance: 0.0000
-      Overall Accuracy: 1.0000
-      Total Texts: 1
-      text_0: Distance=0, Accuracy=1.0000
-        GT: Bagatelle
-        Pred: Bagatelle
-
-  1.5. Lyrics:
-    LYRICS:
-      Precision: 0.0000
-      Recall: 0.0000
-      F1: 0.0000
-      TP: 0, FP: 0, FN: 0
-
-  1.6. Tempo and Dynamics:
-    DYNAMICS:
-      Precision: 1.0000
-      Recall: 1.0000
-      F1: 1.0000
-    TEMPOS:
-      Precision: 1.0000
-      Recall: 1.0000
-      F1: 1.0000
-    TEMPO TEXT (Levenshtein):
-      tempo_0: Distance=0, Accuracy=1.0000
+6. TEXTS METRICS
+================================================================================
+  Text: Accuracy=1.000 | Edit Distance=0 | GT=1, Pred=1
 
 ================================================================================
+DETAILED ERRORS
+================================================================================
 
+================================================================================
+CHORD-LEVEL METRICS
+================================================================================
+
+SUMMARY:
+  GT Chords: 573
+  Pred Chords: 573
+  Matched Chords: 573
+  Missing Chords: 0
+  Extra Chords: 0
+
+MEASURE STATISTICS:
+  GT Measures: 152
+  Pred Measures: 152
+  Matched Measures: 152
+  Missing Measures: 0
+  Extra Measures: 0
+
+ATTRIBUTE ACCURACY:
+  PITCH:
+    Accuracy: 0.8848 (507/573)
+    Errors: 66
+  DURATION:
+    Accuracy: 0.9965 (571/573)
+    Errors: 2
+  SPANNER:
+    Accuracy: 0.9703 (556/573)
+    Errors: 17
+  DOT:
+    Accuracy: 0.9965 (571/573)
+    Errors: 2
+  ARTICULATION:
+    Accuracy: 0.9930 (569/573)
+    Errors: 4
+  ARPEGGIO:
+    Accuracy: 0.9983 (572/573)
+    Errors: 1
+  ACCIDENTAL:
+    Accuracy: 0.9965 (571/573)
+    Errors: 2
+
+DETAILED ERRORS:
+
+  PITCH ERRORS (66 total):
+    [1] Staff 1, Measure 1: True=['75'] → Pred=['72']
+    [2] Staff 1, Measure 2: True=['74'] → Pred=['70']
+    [3] Staff 1, Measure 2: True=['72'] → Pred=['69']
+    [4] Staff 1, Measure 11: True=['69'] → Pred=['72']
+    [5] Staff 1, Measure 15: True=['72'] → Pred=['75']
+    [6] Staff 1, Measure 15: True=['69'] → Pred=['72']
+    [7] Staff 1, Measure 16: True=['67'] → Pred=['70']
+    [8] Staff 1, Measure 16: True=['66'] → Pred=['70']
+    [9] Staff 1, Measure 20: True=['68'] → Pred=['69']
+    [10] Staff 1, Measure 21: True=['68'] → Pred=['69']
+    [11] Staff 1, Measure 23: True=['68'] → Pred=['69']
+    [12] Staff 1, Measure 24: True=['68'] → Pred=['69']
+    [13] Staff 1, Measure 24: True=['68'] → Pred=['69']
+    [14] Staff 1, Measure 31: True=['71'] → Pred=['74']
+    [15] Staff 1, Measure 60: True=['70'] → Pred=['74']
+    [16] Staff 1, Measure 60: True=['79'] → Pred=['82']
+    [17] Staff 1, Measure 60: True=['70'] → Pred=['74']
+    [18] Staff 1, Measure 60: True=['79'] → Pred=['82']
+    [19] Staff 1, Measure 61: True=['79'] → Pred=['75']
+    [20] Staff 1, Measure 64: True=['72', '81'] → Pred=['69', '81']
+    [21] Staff 1, Measure 77: True=['59', '62', '67'] → Pred=['62', '67', '70']
+    [22] Staff 2, Measure 16: True=['48'] → Pred=['51']
+    [23] Staff 2, Measure 16: True=['51'] → Pred=['55']
+    [24] Staff 2, Measure 20: True=['46', '50', '56'] → Pred=['46', '50', '57']
+    [25] Staff 2, Measure 21: True=['56'] → Pred=['53']
+    [26] Staff 2, Measure 21: True=['55'] → Pred=['51']
+    [27] Staff 2, Measure 22: True=['63'] → Pred=['60']
+    [28] Staff 2, Measure 22: True=['61'] → Pred=['58']
+    [29] Staff 2, Measure 23: True=['60'] → Pred=['57']
+    [30] Staff 2, Measure 23: True=['65'] → Pred=['62']
+    [31] Staff 2, Measure 23: True=['56'] → Pred=['53']
+    [32] Staff 2, Measure 24: True=['63'] → Pred=['57']
+    [33] Staff 2, Measure 24: True=['62'] → Pred=['55']
+    [34] Staff 2, Measure 24: True=['58'] → Pred=['55']
+    [35] Staff 2, Measure 27: True=['58', '68'] → Pred=['60', '68']
+    [36] Staff 2, Measure 27: True=['62'] → Pred=['60']
+    [37] Staff 2, Measure 27: True=['63'] → Pred=['65']
+    [38] Staff 2, Measure 28: True=['58', '68'] → Pred=['60', '68']
+    [39] Staff 2, Measure 28: True=['65'] → Pred=['60']
+    [40] Staff 2, Measure 29: True=['58', '68'] → Pred=['56', '68']
+    [41] Staff 2, Measure 29: True=['62'] → Pred=['65']
+    [42] Staff 2, Measure 29: True=['63'] → Pred=['65']
+    [43] Staff 2, Measure 30: True=['58', '68'] → Pred=['48']
+    [44] Staff 2, Measure 30: True=['65'] → Pred=['41']
+    [45] Staff 2, Measure 31: True=['63', '67'] → Pred=['43', '46']
+    [46] Staff 2, Measure 32: True=['56', '63', '65'] → Pred=['36', '43', '44']
+    [47] Staff 2, Measure 33: True=['58', '62', '68'] → Pred=['38', '41', '48']
+    [48] Staff 2, Measure 34: True=['63', '67'] → Pred=['43', '46']
+    [49] Staff 2, Measure 34: True=['70'] → Pred=['50']
+    [50] Staff 2, Measure 34: True=['68'] → Pred=['48']
+    [51] Staff 2, Measure 34: True=['67'] → Pred=['46']
+    [52] Staff 2, Measure 34: True=['65'] → Pred=['44']
+    [53] Staff 2, Measure 34: True=['63'] → Pred=['43']
+    [54] Staff 2, Measure 35: True=['63', '67'] → Pred=['43', '46']
+    [55] Staff 2, Measure 45: True=['42'] → Pred=['46']
+    [56] Staff 2, Measure 53: True=['42'] → Pred=['46']
+    [57] Staff 2, Measure 53: True=['43'] → Pred=['46']
+    [58] Staff 2, Measure 54: True=['36'] → Pred=['39']
+    [59] Staff 2, Measure 54: True=['48'] → Pred=['51']
+    [60] Staff 2, Measure 54: True=['38'] → Pred=['41']
+    [61] Staff 2, Measure 54: True=['50'] → Pred=['53']
+    [62] Staff 2, Measure 54: True=['38'] → Pred=['41']
+    [63] Staff 2, Measure 54: True=['50'] → Pred=['53']
+    [64] Staff 2, Measure 56: True=['51'] → Pred=['55']
+    [65] Staff 2, Measure 56: True=['55'] → Pred=['58']
+    [66] Staff 2, Measure 66: True=['58'] → Pred=['62']
+
+  DURATION ERRORS (2 total):
+    [1] Staff 2, Measure 28: True=quarter → Pred=half
+    [2] Staff 2, Measure 30: True=quarter → Pred=half
+
+  SPANNER ERRORS (17 total):
+    [1] Staff 1, Measure 19: True=['Tie'] → Pred=['Slur', 'Tie']
+    [2] Staff 1, Measure 19: True=['Slur'] → Pred=[]
+    [3] Staff 1, Measure 27: True=['Slur'] → Pred=[]
+    [4] Staff 1, Measure 27: True=['Slur'] → Pred=[]
+    [5] Staff 1, Measure 32: True=['Slur', 'Tie'] → Pred=['Tie']
+    [6] Staff 1, Measure 32: True=['Slur'] → Pred=[]
+    [7] Staff 1, Measure 41: True=[] → Pred=['Slur']
+    [8] Staff 1, Measure 42: True=['Slur'] → Pred=[]
+    [9] Staff 2, Measure 20: True=['Tie'] → Pred=[]
+    [10] Staff 2, Measure 21: True=['Slur', 'Tie'] → Pred=['Slur']
+    [11] Staff 2, Measure 26: True=['Slur'] → Pred=[]
+    [12] Staff 2, Measure 26: True=['Slur'] → Pred=[]
+    [13] Staff 2, Measure 29: True=['Tie'] → Pred=[]
+    [14] Staff 2, Measure 30: True=['Tie'] → Pred=[]
+    [15] Staff 2, Measure 35: True=['Slur'] → Pred=[]
+    [16] Staff 2, Measure 37: True=['Slur'] → Pred=['Tie']
+    [17] Staff 2, Measure 38: True=['Slur'] → Pred=['Tie']
+
+  DOT ERRORS (2 total):
+    [1] Staff 2, Measure 28: True=False → Pred=True
+    [2] Staff 2, Measure 30: True=False → Pred=True
+
+  ARTICULATION ERRORS (4 total):
+    [1] Staff 1, Measure 17: True=[] → Pred=['articStaccato']
+    [2] Staff 1, Measure 17: True=['articStaccato'] → Pred=[]
+    [3] Staff 1, Measure 61: True=['articAccent'] → Pred=[]
+    [4] Staff 1, Measure 68: True=['articStaccato'] → Pred=[]
+
+  ARPEGGIO ERRORS (1 total):
+    [1] Staff 1, Measure 76: True=[] → Pred=['0']
+
+  ACCIDENTAL ERRORS (2 total):
+    [1] Staff 1, Measure 31: True=['accidentalNatural'] → Pred=[]
+    [2] Staff 2, Measure 22: True=['accidentalFlat'] → Pred=[]
+
+================================================================================
+KEYSIG-LEVEL METRICS
+================================================================================
+
+SUMMARY:
+  GT KeySigs: 6
+  Pred KeySigs: 8
+  Matched KeySigs: 6
+  Missing KeySigs: 0
+  Extra KeySigs: 2
+
+VALUE ACCURACY:
+  Accuracy: 0.2500 (2/8)
+  Errors: 6
+
+DETAILED ERRORS:
+  [1] Staff 1: True=-3 → Pred=-2
+  [2] Staff 1: True=-2 → Pred=-3
+  [3] Staff 1: True=None → Pred=-2
+  [4] Staff 2: True=-3 → Pred=-2
+  [5] Staff 2: True=-2 → Pred=-3
+  [6] Staff 2: True=None → Pred=-2
+
+================================================================================
+SPANNER-LEVEL METRICS
+================================================================================
+
+SUMMARY:
+  GT Spanners: 62
+  Pred Spanners: 56
+  Matched Spanners: 54
+  Missing Spanners: 8
+  Extra Spanners: 2
+
+MEASURE STATISTICS:
+  GT Measures: 45
+  Pred Measures: 45
+  Matched Measures: 45
+  Missing Measures: 0
+  Extra Measures: 2
+
+  Extra Measure Details (2):
+    Staff 2, Measure 26: 1 elements
+    Staff 2, Measure 27: 1 elements
+
+TYPE ACCURACY:
+  Accuracy: 0.8438 (54/64)
+  Errors: 10
+
+DETAILED ERRORS:
+  [1] Staff 1, Measure 26: True=HairPin → Pred=None
+  [2] Staff 1, Measure 27: True=HairPin → Pred=None
+  [3] Staff 1, Measure 32: True=HairPin → Pred=None
+  [4] Staff 1, Measure 33: True=HairPin → Pred=None
+  [5] Staff 1, Measure 35: True=Volta → Pred=None
+  [6] Staff 1, Measure 36: True=Volta → Pred=None
+  [7] Staff 1, Measure 50: True=HairPin → Pred=None
+  [8] Staff 1, Measure 52: True=HairPin → Pred=None
+  [9] Staff 2, Measure 26: True=None → Pred=HairPin
+  [10] Staff 2, Measure 27: True=None → Pred=HairPin
+
+================================================================================
 ```
+</details>
+
+** **
 
 
 ## Quality Metrics
 
-The `calculate_metrics.py` script computes the following metrics:
+The benchmark computes metrics organized into 6 main categories:
 
 ### 1. Tree-level Metrics
-- **Tree Edit Distance (TED)** - edit distance between trees
+- **Tree Edit Distance (TED)** - Edit distance between the ground truth and predicted score trees
 - **Normalized Error** - TED normalized by the size of the larger tree
 - **Tree Accuracy** - 1 - normalized error
 
-### 2. Sequence Metrics (Sequential Representation)
-- **CER (Character Error Rate)** - error at character level when serializing the score
-- **SER (Symbol Error Rate)** - error at musical symbol level (notes, rests, clefs, etc.)
+### 2. Sequence Metrics
+- **CER (Character Error Rate)** - Error rate at character level when serializing the score
+- **SER (Symbol Error Rate)** - Error rate at musical symbol level (notes, rests, clefs, etc.)
+- Both metrics include accuracy values (1 - error rate)
 
-### 3. Note-level Metrics
-- **Precision** - proportion of correctly recognized notes among all predicted notes
-- **Recall** - proportion of correctly recognized notes among all notes in ground truth
-- **F1-Score** - harmonic mean of precision and recall
-- Counts: True Positives, False Positives, False Negatives
+### 3. Musical Structure Metrics
+Metrics for the core musical content:
 
-### 4. Pitch Accuracy
-- Compares the pitch of each note by position in the score
-- Shows how accurately note pitches are recognized
+**Chord-level attributes:**
+- **Pitch Accuracy** - Accuracy of note pitches in chords
+- **Duration Accuracy** - Accuracy of chord durations
+- **Spanner Accuracy** - Accuracy of spanners (ties, slurs, etc.) attached to chords
+- **Dot Accuracy** - Accuracy of dotted note recognition
+- **Articulation Accuracy** - Accuracy of articulations (staccato, accent, etc.)
+- **Arpeggio Accuracy** - Accuracy of arpeggio markings
+- **Accidental Accuracy** - Accuracy of accidentals (sharps, flats, naturals)
 
-### 5. Duration Accuracy
-- Compares durations of notes and rests
-- Shows how accurately rhythmic values are recognized
+**Other musical elements:**
+- **Rest Duration Accuracy** - Accuracy of rest durations
+- **Tuplet Accuracy** - Accuracy of tuplet values
 
-### 6. Measure-level Metrics
-- **Measure Count Accuracy** - accuracy of measure count
-- **Measure Content Accuracy** - accuracy of measure content (number of notes/chords)
+### 4. Score Structure Metrics
+Metrics for structural elements of the score:
+- **Clef Accuracy** - Accuracy of clef recognition
+- **KeySig Accuracy** - Accuracy of key signature recognition
+- **TimeSig Accuracy** - Accuracy of time signature recognition
+- **Tempo Accuracy** - Accuracy of tempo markings
+- **Instrument Accuracy** - Accuracy of instrument recognition
+- **Staff Accuracy** - Accuracy of staff presence (count and structure)
 
-### 7. Staff-level Metrics
-- **Staff Count Accuracy** - accuracy of staff count
-- **Clef Accuracy** - accuracy of clef recognition
+### 5. Performance Instructions Metrics
+Metrics for performance-related markings:
+- **Dynamic Accuracy** - Accuracy of dynamic markings (piano, forte, etc.)
+- **Spanner Accuracy** - Accuracy of spanner types (slurs, ties, etc.)
+- **Fermata Accuracy** - Accuracy of fermata recognition
 
-### 8. Individual Element Category Metrics
+### 6. Texts Metrics
+Metrics for textual elements:
+- **Text Accuracy** - Accuracy of text elements (title, composer, etc.) using Levenshtein distance
+- **Lyrics Accuracy** - Accuracy of lyrics using Levenshtein distance
 
-#### 8.1. Instruments and System Parameters
-- **Instruments** - Precision/Recall/F1 for instruments
-- **Staffs** - Precision/Recall/F1 for staffs
-- **Clefs** - Precision/Recall/F1 for clefs
-- **Time Signatures** - Precision/Recall/F1 for time signatures
+### Understanding Accuracy Metrics
 
-#### 8.2. Notes and Their Attributes
-- **Pitches** - Precision/Recall/F1 for note pitches
-- **Note Durations** - Precision/Recall/F1 for note durations
-- **Accidentals** - Precision/Recall/F1 for accidentals
-- **Ties** - Precision/Recall/F1 for ties
+The term "Accuracy" has different meanings depending on the metric type:
 
-#### 8.3. Rests
-- **Rests** - Precision/Recall/F1 for rests and their durations
+**1. Tree-level Accuracy:**
+- Formula: `Accuracy = 1 - (TED / max(tree_size_GT, tree_size_Pred))`
+- Meaning: Normalized accuracy based on tree edit distance. Represents how structurally similar the trees are, normalized by the size of the larger tree.
+- Range: 0.0 to 1.0 (higher is better)
 
-#### 8.4. Text Elements
-- **Title, Subtitle, Composer** - Levenshtein distance for text fields
+**2. Sequence Metrics Accuracy (CER/SER):**
+- Formula: `Accuracy = 1 - Error_Rate`
+- Meaning: Proportion of correctly recognized characters/symbols in the serialized score representation.
+- Range: 0.0 to 1.0 (higher is better)
 
-#### 8.5. Tempo and Dynamics
-- **Dynamics** - Precision/Recall/F1 for dynamic markings
-- **Tempos** - Precision/Recall/F1 for tempo markings
-- **Tempo Text** - Levenshtein distance for textual tempo markings
+**3. Chord and Element Metrics Accuracy:**
+- Formula: `Accuracy = correct / total`
+- Meaning: Proportion of correctly recognized attributes among all matched chord/element pairs. For each matched pair (GT chord ↔ Predicted chord), individual attributes (pitch, duration, etc.) are compared. Accuracy is the fraction of attributes that match correctly.
+- Range: 0.0 to 1.0 (higher is better)
+- Note: Only matched pairs are evaluated (missing or extra elements are counted separately in summary statistics)
+
+**4. Text/Lyrics/Tempo Accuracy:**
+- Formula: `Accuracy = 1 - (Levenshtein_distance / max(text_length_GT, text_length_Pred))`
+- Meaning: Normalized string similarity based on edit distance. Represents how similar the text strings are, accounting for insertions, deletions, and substitutions.
+- Range: 0.0 to 1.0 (higher is better)
+
