@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Tuple, Optional, Callable
 from core.score_tree import Node
 
 def extract_elements_with_attributes(node: Node,
@@ -45,9 +45,9 @@ def extract_elements_with_attributes(node: Node,
                     'element_id': node.id,
                 }
                 if element_type == "Spanner":
-                    element_info['type'] = node.value
+                    element_info['value'] = node.value
                 elif element_type == "Fermata":
-                    element_info['subtype'] = node.value
+                    element_info['value'] = node.value
                 elements.append(element_info)
         else:
             element_info = {
@@ -57,32 +57,18 @@ def extract_elements_with_attributes(node: Node,
                 'element_id': node.id,
             }
             if element_type == "Rest":
-                element_info['duration'] = None
+                element_info['value'] = None
                 for child in node.children:
                     if child.label == "Duration":
-                        element_info['duration'] = child.value
+                        element_info['value'] = child.value
                         break
-            elif element_type == "Tuplet":
-                element_info['value'] = node.value
-            elif element_type == "Clef":
-                element_info['value'] = node.value
-            elif element_type == "KeySig":
-                element_info['value'] = node.value
-            elif element_type == "TimeSig":
-                element_info['value'] = node.value
-            elif element_type == "Tempo":
-                element_info['value'] = node.value
-            elif element_type == "Dynamic":
-                element_info['value'] = node.value
-            elif element_type == "Instrument":
-                element_info['value'] = node.value
             elif element_type == "Staff":
                 element_info['value'] = None
-            elif element_type == "Text":
-                element_info['value'] = node.value
             elif element_type == "Lyrics":
                 element_info['value'] = node.value
                 element_info['chord_id'] = current_chord_id
+            else:
+                element_info['value'] = node.value
             elements.append(element_info)
     for child in node.children:
         elements.extend(extract_elements_with_attributes(
@@ -230,35 +216,186 @@ def align_measures_in_staff_for_elements(staff_id: int,
     alignment.reverse()
     return alignment
 
+def compare_element(gt_element: Dict, pred_element: Dict, element_type: str = None) -> Tuple[bool, Dict]:
+    gt_value = gt_element.get('value')
+    pred_value = pred_element.get('value')
+    match = gt_value == pred_value
+    error_details = {
+        'match': match,
+        'gt_value': gt_value,
+        'pred_value': pred_value
+    }
+    return match, error_details
+
+def calculate_element_metrics_generic(
+    gt_tree: Node,
+    pred_tree: Node,
+    element_type: str,
+    measure_mapping: Optional[Dict[Tuple[int, int], Optional[int]]] = None,
+    compare_func: Optional[Callable[[Dict, Dict], Tuple[bool, Dict]]] = None
+) -> Dict:
+    if compare_func is None:
+        compare_func = compare_element
+    
+    gt_elements = extract_elements_with_attributes(gt_tree, element_type)
+    pred_elements = extract_elements_with_attributes(pred_tree, element_type)
+    assign_element_positions_in_measures(gt_elements, element_type)
+    assign_element_positions_in_measures(pred_elements, element_type)
+    element_matches, measure_stats = match_elements_by_position(
+        gt_elements, pred_elements, element_type, use_alignment=True, measure_mapping=measure_mapping
+    )
+    
+    metrics = {
+        'value': {'correct': 0, 'total': 0, 'errors': []}
+    }
+    
+    for gt_element, pred_element in element_matches:
+        if gt_element is not None:
+            position = {
+                'part_id': gt_element['part_id'],
+                'staff_id': gt_element['staff_id'],
+                'measure_id': gt_element['measure_id'],
+                'element_position_in_measure': gt_element.get('element_position_in_measure')
+            }
+        elif pred_element is not None:
+            position = {
+                'part_id': pred_element['part_id'],
+                'staff_id': pred_element['staff_id'],
+                'measure_id': pred_element['measure_id'],
+                'element_position_in_measure': pred_element.get('element_position_in_measure')
+            }
+        else:
+            continue
+        
+        if gt_element is None:
+            gt_element = {'value': None}
+        elif pred_element is None:
+            pred_element = {'value': None}
+        
+        attr_match, attr_details = compare_func(gt_element, pred_element)
+        metrics['value']['total'] += 1
+        
+        if attr_match:
+            metrics['value']['correct'] += 1
+        else:
+            metrics['value']['errors'].append({
+                'position': position,
+                'details': attr_details
+            })
+    
+    metrics['summary'] = {
+        'gt_elements_count': len(gt_elements),
+        'pred_elements_count': len(pred_elements),
+        'matched_elements_count': len([m for m in element_matches if m[0] is not None and m[1] is not None]),
+        'missing_elements_count': len([m for m in element_matches if m[0] is not None and m[1] is None]),
+        'extra_elements_count': len([m for m in element_matches if m[0] is None and m[1] is not None]),
+        'gt_measures_count': measure_stats['gt_measures_count'],
+        'pred_measures_count': measure_stats['pred_measures_count'],
+        'matched_measures_count': measure_stats['matched_measures_count'],
+        'missing_measures_count': measure_stats['missing_measures_count'],
+        'extra_measures_count': measure_stats['extra_measures_count'],
+        'missing_measure_details': measure_stats['missing_measure_details'],
+        'extra_measure_details': measure_stats['extra_measure_details']
+    }
+    
+    if metrics['summary']['gt_elements_count'] == 0 and metrics['summary']['pred_elements_count'] == 0:
+        metrics['value']['accuracy'] = 1.0
+    else:
+        total = metrics['value']['total']
+        correct = metrics['value']['correct']
+        metrics['value']['accuracy'] = correct / total if total > 0 else 0.0
+    
+    return metrics
+
+def calculate_element_metrics_by_staff(
+    gt_tree: Node,
+    pred_tree: Node,
+    element_type: str,
+    extract_func: Optional[Callable] = None,
+    compare_func: Optional[Callable[[Dict, Dict], Tuple[bool, Dict]]] = None
+) -> Dict:
+    if extract_func is None:
+        extract_func = lambda tree: extract_elements_with_attributes(tree, element_type)
+    if compare_func is None:
+        compare_func = compare_element
+    
+    gt_elements = extract_func(gt_tree)
+    pred_elements = extract_func(pred_tree)
+    element_matches, measure_stats = match_elements_by_staff(gt_elements, pred_elements, element_type)
+    
+    metrics = {
+        'value': {'correct': 0, 'total': 0, 'errors': []}
+    }
+    
+    for gt_element, pred_element in element_matches:
+        if gt_element is not None:
+            position = {
+                'part_id': gt_element['part_id'],
+                'staff_id': gt_element['staff_id'],
+                'measure_id': None,
+                'element_position_in_measure': None
+            }
+        elif pred_element is not None:
+            position = {
+                'part_id': pred_element['part_id'],
+                'staff_id': pred_element['staff_id'],
+                'measure_id': None,
+                'element_position_in_measure': None
+            }
+        else:
+            continue
+        
+        if gt_element is None:
+            gt_element = {'value': None}
+        elif pred_element is None:
+            pred_element = {'value': None}
+        
+        import inspect
+        sig = inspect.signature(compare_func)
+        if len(sig.parameters) >= 4:
+            attr_match, attr_details = compare_func(gt_element, pred_element, 'value', element_type)
+        else:
+            attr_match, attr_details = compare_func(gt_element, pred_element)
+        metrics['value']['total'] += 1
+        
+        if attr_match:
+            metrics['value']['correct'] += 1
+        else:
+            metrics['value']['errors'].append({
+                'position': position,
+                'details': attr_details
+            })
+    
+    metrics['summary'] = {
+        'gt_elements_count': len(gt_elements),
+        'pred_elements_count': len(pred_elements),
+        'matched_elements_count': len([m for m in element_matches if m[0] is not None and m[1] is not None]),
+        'missing_elements_count': len([m for m in element_matches if m[0] is not None and m[1] is None]),
+        'extra_elements_count': len([m for m in element_matches if m[0] is None and m[1] is not None]),
+        'gt_measures_count': measure_stats['gt_measures_count'],
+        'pred_measures_count': measure_stats['pred_measures_count'],
+        'matched_measures_count': measure_stats['matched_measures_count'],
+        'missing_measures_count': measure_stats['missing_measures_count'],
+        'extra_measures_count': measure_stats['extra_measures_count'],
+        'missing_measure_details': measure_stats['missing_measure_details'],
+        'extra_measure_details': measure_stats['extra_measure_details']
+    }
+    
+    if metrics['summary']['gt_elements_count'] == 0 and metrics['summary']['pred_elements_count'] == 0:
+        metrics['value']['accuracy'] = 1.0
+    else:
+        total = metrics['value']['total']
+        correct = metrics['value']['correct']
+        metrics['value']['accuracy'] = correct / total if total > 0 else 0.0
+    
+    return metrics
+
 def element_similarity(element1: Dict, element2: Dict, element_type: str) -> float:
     if element1 is None or element2 is None:
         return 0.0
-    if element_type == "Rest":
-        gt_duration = element1.get('duration')
-        pred_duration = element2.get('duration')
-        return 1.0 if gt_duration == pred_duration else 0.0
-    elif element_type == "Tuplet":
-        gt_value = element1.get('value')
-        pred_value = element2.get('value')
-        return 1.0 if gt_value == pred_value else 0.0
-    elif element_type == "Spanner":
-        gt_type = element1.get('type')
-        pred_type = element2.get('type')
-        return 1.0 if gt_type == pred_type else 0.0
-    elif element_type == "Fermata":
-        gt_subtype = element1.get('subtype')
-        pred_subtype = element2.get('subtype')
-        return 1.0 if gt_subtype == pred_subtype else 0.0
-    elif element_type == "Dynamic":
-        gt_value = element1.get('value')
-        pred_value = element2.get('value')
-        return 1.0 if gt_value == pred_value else 0.0
-    elif element_type in ["Clef", "KeySig", "TimeSig", "Tempo", "Instrument"]:
-        gt_value = element1.get('value')
-        pred_value = element2.get('value')
-        return 1.0 if gt_value == pred_value else 0.0
-    else:
-        return 1.0 if element1 == element2 else 0.0
+    gt_value = element1.get('value')
+    pred_value = element2.get('value')
+    return 1.0 if gt_value == pred_value else 0.0
 
 def align_elements_in_measure(gt_elements: List[Dict], pred_elements: List[Dict], element_type: str) -> List[Tuple[Optional[Dict], Optional[Dict]]]:
     n = len(gt_elements)

@@ -82,30 +82,30 @@ def flatten_metrics(results: Dict, prefix: str = "") -> Dict[str, float]:
                 metrics = elem_metrics[elem_type]
                 summary = metrics.get('summary', {})
                 if summary.get('gt_elements_count', 0) == 0 and summary.get('pred_elements_count', 0) == 0:
-                    if elem_type == 'rest' and 'duration' in metrics:
-                        flattened[f'element_metrics.{elem_type}.duration.accuracy'] = 1.0
-                    elif elem_type == 'tuplet' and 'value' in metrics:
+                    if 'value' in metrics:
                         flattened[f'element_metrics.{elem_type}.value.accuracy'] = 1.0
                 else:
-                    if elem_type == 'rest' and 'duration' in metrics:
-                        flattened[f'element_metrics.{elem_type}.duration.accuracy'] = metrics['duration'].get('accuracy', 0)
-                    elif elem_type == 'tuplet' and 'value' in metrics:
+                    if 'value' in metrics:
                         flattened[f'element_metrics.{elem_type}.value.accuracy'] = metrics['value'].get('accuracy', 0)
 
-        for elem_type in ['clef', 'keysig', 'timesig', 'tempo', 'instrument', 'staff']:
+        for elem_type in ['clef', 'keysig', 'timesig', 'instrument', 'staff']:
             if elem_type in elem_metrics:
                 metrics = elem_metrics[elem_type]
                 summary = metrics.get('summary', {})
                 if summary.get('gt_elements_count', 0) == 0 and summary.get('pred_elements_count', 0) == 0:
-                    if elem_type == 'staff' and 'presence' in metrics:
-                        flattened[f'element_metrics.{elem_type}.presence.accuracy'] = 1.0
-                    elif 'value' in metrics:
+                    if 'value' in metrics:
                         flattened[f'element_metrics.{elem_type}.value.accuracy'] = 1.0
                 else:
-                    if elem_type == 'staff' and 'presence' in metrics:
-                        flattened[f'element_metrics.{elem_type}.presence.accuracy'] = metrics['presence'].get('accuracy', 0)
-                    elif 'value' in metrics:
+                    if 'value' in metrics:
                         flattened[f'element_metrics.{elem_type}.value.accuracy'] = metrics['value'].get('accuracy', 0)
+
+        if 'tempo' in elem_metrics:
+            tempo_metrics = elem_metrics['tempo']
+            summary = tempo_metrics.get('summary', {})
+            if summary.get('gt_elements_count', 0) == 0 and summary.get('pred_elements_count', 0) == 0:
+                flattened['element_metrics.tempo.combined_accuracy'] = 1.0
+            elif 'combined_tempos' in tempo_metrics:
+                flattened['element_metrics.tempo.combined_accuracy'] = tempo_metrics['combined_tempos'].get('accuracy', 0)
 
         if 'dynamic' in elem_metrics:
             metrics = elem_metrics['dynamic']
@@ -119,17 +119,17 @@ def flatten_metrics(results: Dict, prefix: str = "") -> Dict[str, float]:
             metrics = elem_metrics['spanner']
             summary = metrics.get('summary', {})
             if summary.get('gt_elements_count', 0) == 0 and summary.get('pred_elements_count', 0) == 0:
-                flattened['element_metrics.spanner.type.accuracy'] = 1.0
-            elif 'type' in metrics:
-                flattened['element_metrics.spanner.type.accuracy'] = metrics['type'].get('accuracy', 0)
+                flattened['element_metrics.spanner.value.accuracy'] = 1.0
+            elif 'value' in metrics:
+                flattened['element_metrics.spanner.value.accuracy'] = metrics['value'].get('accuracy', 0)
 
         if 'fermata' in elem_metrics:
             metrics = elem_metrics['fermata']
             summary = metrics.get('summary', {})
             if summary.get('gt_elements_count', 0) == 0 and summary.get('pred_elements_count', 0) == 0:
-                flattened['element_metrics.fermata.subtype.accuracy'] = 1.0
-            elif 'subtype' in metrics:
-                flattened['element_metrics.fermata.subtype.accuracy'] = metrics['subtype'].get('accuracy', 0)
+                flattened['element_metrics.fermata.value.accuracy'] = 1.0
+            elif 'value' in metrics:
+                flattened['element_metrics.fermata.value.accuracy'] = metrics['value'].get('accuracy', 0)
 
         if 'text' in elem_metrics:
             text_metrics = elem_metrics['text']

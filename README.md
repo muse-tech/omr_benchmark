@@ -331,18 +331,7 @@ SUMMARY:
   Missing Spanners: 8
   Extra Spanners: 2
 
-MEASURE STATISTICS:
-  GT Measures: 45
-  Pred Measures: 45
-  Matched Measures: 45
-  Missing Measures: 0
-  Extra Measures: 2
-
-  Extra Measure Details (2):
-    Staff 2, Measure 26: 1 elements
-    Staff 2, Measure 27: 1 elements
-
-TYPE ACCURACY:
+VALUE ACCURACY:
   Accuracy: 0.8438 (54/64)
   Errors: 10
 

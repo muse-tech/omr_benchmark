@@ -9,7 +9,8 @@ from metrics.tree_edit_distance import (
 )
 from metrics.sequence_metrics import (
     character_error_rate,
-    symbol_error_rate
+    symbol_error_rate,
+    _calculate_sequence_metrics
 )
 from metrics.output import print_metrics
 from metrics.chord_metrics import (
@@ -67,8 +68,9 @@ def calculate_all_metrics(ground_truth_path, predicted_path,
 
     if 'sequence' in metric_groups:
         print("2. Sequence metrics (CER, SER)...")
-        results['cer'] = character_error_rate(gt_tree, pred_tree)
-        results['ser'] = symbol_error_rate(gt_tree, pred_tree)
+        cer_result, ser_result = _calculate_sequence_metrics(gt_tree, pred_tree)
+        results['cer'] = cer_result
+        results['ser'] = ser_result
 
     if 'chord' in metric_groups or 'musical_structure' in metric_groups:
         print("3. Chord-level metrics...")

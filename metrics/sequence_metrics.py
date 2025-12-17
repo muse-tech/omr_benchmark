@@ -84,33 +84,42 @@ def list_edit_distance(seq1, seq2):
         previous_row = current_row
     return previous_row[n]
 
-def character_error_rate(gt_tree: Node, pred_tree: Node) -> Dict:
-    gt_string = " ".join(serialize_score_to_tokens(gt_tree))
-    pred_string = " ".join(serialize_score_to_tokens(pred_tree))
+def _calculate_sequence_metrics(gt_tree: Node, pred_tree: Node) -> Tuple[Dict, Dict]:
+    gt_symbols = serialize_score_to_tokens(gt_tree)
+    pred_symbols = serialize_score_to_tokens(pred_tree)
+    
+    gt_string = " ".join(gt_symbols)
+    pred_string = " ".join(pred_symbols)
     total_chars = max(len(gt_string), len(pred_string), 1)
-    errors = levenshtein_distance(gt_string, pred_string)
-    cer = errors / total_chars
+    char_errors = levenshtein_distance(gt_string, pred_string)
+    cer = char_errors / total_chars
 
-    return {
+    cer_result = {
         'cer': cer,
-        'errors': errors,
+        'errors': char_errors,
         'total_characters': total_chars,
         'accuracy': 1 - cer
     }
 
-
-def symbol_error_rate(gt_tree: Node, pred_tree: Node) -> Dict:
-    gt_symbols = serialize_score_to_tokens(gt_tree)
-    pred_symbols = serialize_score_to_tokens(pred_tree)
     total_symbols = max(len(gt_symbols), len(pred_symbols), 1)
-    errors = list_edit_distance(gt_symbols, pred_symbols)
-    ser = errors / len(gt_symbols) if len(gt_symbols) > 0 else 0.0
-    matches = len(gt_symbols) - errors
+    symbol_errors = list_edit_distance(gt_symbols, pred_symbols)
+    ser = symbol_errors / len(gt_symbols) if len(gt_symbols) > 0 else 0.0
+    matches = len(gt_symbols) - symbol_errors
 
-    return {
+    ser_result = {
         'ser': ser,
-        'errors': errors,
+        'errors': symbol_errors,
         'total_symbols': total_symbols,
         'matches': matches,
         'accuracy': 1 - ser
     }
+    
+    return cer_result, ser_result
+
+def character_error_rate(gt_tree: Node, pred_tree: Node) -> Dict:
+    cer_result, _ = _calculate_sequence_metrics(gt_tree, pred_tree)
+    return cer_result
+
+def symbol_error_rate(gt_tree: Node, pred_tree: Node) -> Dict:
+    _, ser_result = _calculate_sequence_metrics(gt_tree, pred_tree)
+    return ser_result
