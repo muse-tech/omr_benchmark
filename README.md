@@ -4,6 +4,8 @@ Benchmark for evaluating the quality of Optical Music Recognition (OMR) results.
 
 ## Benchmark Dataset
 
+[![HuggingFace Dataset](https://img.shields.io/badge/🤗%20HuggingFace-Dataset-yellow)](https://huggingface.co/datasets/musegroup/omr_benchmark)
+
 The benchmark dataset is available on HuggingFace: [musegroup/omr_benchmark](https://huggingface.co/datasets/musegroup/omr_benchmark)
 
 It contains **1077 pairs** of:
@@ -11,6 +13,15 @@ It contains **1077 pairs** of:
 - Corresponding PDF renderings with data augmentation (ink blobs, scratches, paper texture, rotation, etc.)
 
 All underlying works are **Public Domain** (CC0-1.0 license).
+
+### Sample Augmented PDFs
+
+<p align="center">
+  <img src="assets/sample_pdf_1.png" width="45%" alt="Sample augmented PDF 1"/>
+  <img src="assets/sample_pdf_2.png" width="45%" alt="Sample augmented PDF 2"/>
+</p>
+
+*Examples of augmented PDF renderings with simulated wear, stains, and rotation.*
 
 ## Installation
 
