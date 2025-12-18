@@ -2,6 +2,16 @@
 
 Benchmark for evaluating the quality of Optical Music Recognition (OMR) results.
 
+## Benchmark Dataset
+
+The benchmark dataset is available on HuggingFace: [musegroup/omr_benchmark](https://huggingface.co/datasets/musegroup/omr_benchmark)
+
+It contains **1077 pairs** of:
+- Symbolic music scores (ground truth in MuseScore format)
+- Corresponding PDF renderings with data augmentation (ink blobs, scratches, paper texture, rotation, etc.)
+
+All underlying works are **Public Domain** (CC0-1.0 license).
+
 ## Installation
 
 ```bash
