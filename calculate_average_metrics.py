@@ -1,6 +1,7 @@
 import os
 import sys
 import argparse
+import json
 from pathlib import Path
 from collections import defaultdict
 from typing import Dict, List
@@ -11,6 +12,27 @@ import io
 from contextlib import redirect_stdout
 import traceback
 
+def get_filenames_from_dataset() -> List[str]:
+    json_path = Path("./data/omr_benchmark/benchmark_dataset.json")
+    if not json_path.exists():
+        raise FileNotFoundError(
+            f"benchmark_dataset.json not found at {json_path}. "
+            f"Please run download_dataset.py first to download it."
+        )
+    print("Loading dataset from benchmark_dataset.json...")
+    with open(json_path, 'r') as f:
+        dataset_json = json.load(f)
+
+    filenames = []
+    for col_key in sorted(dataset_json.keys(), key=lambda x: int(x) if x.isdigit() else 0):
+        sample_data = dataset_json[col_key]
+        if isinstance(sample_data, dict) and "score" in sample_data:
+            score_path = sample_data["score"]
+            filename = Path(score_path).name
+            filenames.append(filename)
+    print(f"Found {len(filenames)} files in dataset")
+    return filenames
+
 def find_matching_files(true_dir: str, predicted_dir: str) -> List[tuple]:
     true_path = Path(true_dir)
     pred_path = Path(predicted_dir)
@@ -19,17 +41,38 @@ def find_matching_files(true_dir: str, predicted_dir: str) -> List[tuple]:
         raise FileNotFoundError(f"Folder {true_dir} not found")
     if not pred_path.exists():
         raise FileNotFoundError(f"Folder {predicted_dir} not found")
+
+    dataset_filenames = get_filenames_from_dataset()
     true_files = {f.name: f for f in true_path.iterdir() if f.is_file() and f.suffix.lower() == '.mscz'}
     pred_files = {f.name: f for f in pred_path.iterdir() if f.is_file() and f.suffix.lower() == '.mscz'}
-    matching_names = set(true_files.keys()) & set(pred_files.keys())
 
-    if not matching_names:
-        print(f"Warning: no .mscz files with matching names found")
+    pairs = []
+    missing_true = []
+    missing_pred = []
+    for filename in dataset_filenames:
+        true_file = true_files.get(filename)
+        pred_file = pred_files.get(filename)
+        if true_file and pred_file:
+            pairs.append((true_file, pred_file, filename))
+        else:
+            if not true_file:
+                missing_true.append(filename)
+            if not pred_file:
+                missing_pred.append(filename)
+
+    if missing_true:
+        print(f"Warning: {len(missing_true)} files from dataset not found in {true_dir}")
+        print(f"   Examples: {missing_true[:5]}")
+    if missing_pred:
+        print(f"Warning: {len(missing_pred)} files from dataset not found in {predicted_dir}")
+        print(f"   Examples: {missing_pred[:5]}")
+    
+    if not pairs:
+        print(f"Warning: no matching files found")
         print(f"   Files in {true_dir}: {list(true_files.keys())[:5]}...")
         print(f"   Files in {predicted_dir}: {list(pred_files.keys())[:5]}...")
         return []
 
-    pairs = [(true_files[name], pred_files[name], name) for name in matching_names]
     return sorted(pairs, key=lambda x: x[2])
 
 def format_metric_name(key: str) -> str:
