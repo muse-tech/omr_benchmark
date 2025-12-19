@@ -29,6 +29,19 @@ All underlying works are **Public Domain** (CC0-1.0 license).
 pip install -r requirements.txt
 ```
 
+## Downloading the Dataset
+
+To download the benchmark dataset from Hugging Face:
+
+```bash
+python download_dataset.py
+```
+
+This script will:
+- Download `benchmark_dataset.json` with dataset metadata
+- Download all PDF files to `./data/pdf/`
+- Download all MuseScore files to `./data/mscz/`
+
 ## Usage
 
 ### Basic Usage
@@ -56,22 +69,20 @@ To evaluate OMR quality on a set of files, you can compute average metrics acros
 
 ```bash
 # Basic usage
-python calculate_average_metrics.py data/mscz/ data/predicted/
+python calculate_average_metrics.py data/mscz/ <path_to_predicted_files>/
 
 # With approximate algorithm for large trees
-python calculate_average_metrics.py data/mscz/ data/predicted/ --ted-approximate
+python calculate_average_metrics.py data/mscz/ <path_to_predicted_files>/ --ted-approximate
 
 # Save reports to CSV files in a directory
-python calculate_average_metrics.py data/mscz/ data/predicted/ -o report_dir/
+python calculate_average_metrics.py data/mscz/ <path_to_predicted_files>/ -o report_dir/
 
 # Save CSV reports and detailed text reports for each file
-python calculate_average_metrics.py data/mscz/ data/predicted/ -o report_dir/ --detailed-errors
+python calculate_average_metrics.py data/mscz/ <path_to_predicted_files>/ -o report_dir/ --detailed-errors
 
 # Compute only specific metric groups
-python calculate_average_metrics.py data/mscz/ data/predicted/ --metric score_structure
+python calculate_average_metrics.py data/mscz/ <path_to_predicted_files>/ --metric score_structure
 ```
-
-The script will automatically find all pairs of files with matching names in the specified folders, compute metrics for each pair, and output average values across all files.
 
 **Output files (when using `-o` option):**
 - `tree_level_metrics.csv` - Tree Edit Distance metrics
